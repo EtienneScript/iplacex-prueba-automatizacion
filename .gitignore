@@ -1,0 +1,35 @@
+# Sistema
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencias y builds
+node_modules/
+dist/
+build/
+coverage/
+.venv/
+venv/
+__pycache__/
+*.pyc
+target/
+
+# Logs y temporales
+*.log
+tmp/
+temp/
+*.tmp
