@@ -19,6 +19,7 @@
         <junit.version>5.13.4</junit.version>
         <selenium.version>4.48.0</selenium.version>
         <slf4j.version>2.0.17</slf4j.version>
+        <headless>true</headless>
     </properties>
 
     <dependencyManagement>
@@ -72,6 +73,9 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
+                    <systemPropertyVariables>
+                        <headless>${headless}</headless>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

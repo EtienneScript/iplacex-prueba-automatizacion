@@ -109,6 +109,26 @@ hotfix/<id>-<descripcion-corta>
 
 Ejemplos válidos: `feature/014-reporte-pdf`, `release/1.2.0`, `hotfix/088-error-login`.
 
+## Convención de commits
+
+Mensaje en **español**, una línea, tipo al inicio:
+
+```
+feature: Agrega el pipeline de CI con stages de build y test.
+fix: Corrige el comando del wrapper en PowerShell.
+```
+
+| Tipo | Uso |
+| --- | --- |
+| `feature:` | Algo nuevo (funcionalidad, CI, docs, estructura) |
+| `fix:` | Corrección |
+
+Para que Git te muestre la plantilla al commitear a mano:
+
+```powershell
+git config commit.template .gitmessage
+```
+
 ## Qué no hacer
 
 - No commitear directo en `main`.

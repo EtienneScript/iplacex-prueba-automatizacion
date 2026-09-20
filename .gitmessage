@@ -1,0 +1,6 @@
+# feature: Resumen en español (imperativo, una línea)
+# fix: Resumen en español (imperativo, una línea)
+#
+# Ejemplos:
+# feature: Agrega el pipeline de CI con stages de build y test.
+# fix: Corrige el comando del wrapper en PowerShell.

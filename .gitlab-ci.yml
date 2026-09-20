@@ -1,0 +1,42 @@
+# Mismo flujo que el Jenkinsfile: Build y luego pruebas automatizadas.
+stages:
+  - build
+  - test
+
+variables:
+  MAVEN_OPTS: '-Dhttps.protocols=TLSv1.2'
+  HEADLESS: 'true'
+  MAVEN_CLI_OPTS: '-B'
+
+# Imagen con JDK 17, Maven y Chromium para Selenium headless.
+default:
+  image: markhobson/maven-chrome:jdk-17
+
+cache:
+  key: '${CI_COMMIT_REF_SLUG}'
+  paths:
+    - .m2/repository
+
+build:
+  stage: build
+  script:
+    - chmod +x mvnw
+    - ./mvnw $MAVEN_CLI_OPTS -DskipTests compile
+  artifacts:
+    paths:
+      - target/
+    expire_in: 1 hour
+
+test:
+  stage: test
+  needs: ['build']
+  script:
+    - chmod +x mvnw
+    - ./mvnw $MAVEN_CLI_OPTS test -Dheadless=$HEADLESS
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+    paths:
+      - target/surefire-reports/
+    expire_in: 1 week

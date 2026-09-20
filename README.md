@@ -44,6 +44,23 @@ Solo la prueba unitaria, sin abrir Chrome:
 .\mvnw.cmd test -Dtest=SanityTest
 ```
 
+## Pipeline de CI
+
+El pipeline tiene dos stages, en este orden:
+
+| Stage | Qué hace | Comando |
+| --- | --- | --- |
+| **Build** | Compila el proyecto, sin ejecutar pruebas | `./mvnw -B -DskipTests compile` |
+| **Test** | Corre JUnit y Selenium en Chrome headless | `./mvnw -B test -Dheadless=true` |
+
+Si el build falla, las pruebas no se ejecutan.
+
+Definiciones del mismo flujo:
+
+- `Jenkinsfile` — Jenkins (declarativo). El agente debe tener JDK 17 registrado como herramienta `JDK17` y Google Chrome.
+- `.gitlab-ci.yml` — GitLab CI/CD (imagen con Maven + Chromium).
+- `.github/workflows/ci.yml` — GitHub Actions (se dispara en `main`, `develop` y ramas GitFlow).
+
 ## Flujo de ramas
 
 Este proyecto usa GitFlow. Las ramas de larga duración son:
@@ -62,6 +79,8 @@ Las ramas de corta duración se crean y se eliminan al integrar:
 | `hotfix/*` | `main` | `main` y `develop` | Corrección urgente en producción |
 
 La guía completa está en [`docs/flujo-de-ramas.md`](docs/flujo-de-ramas.md).
+
+Los commits van en español con tipo `feature:` o `fix:`. Ejemplo: `feature: Agrega el pipeline de CI.`
 
 ## Arranque local
 

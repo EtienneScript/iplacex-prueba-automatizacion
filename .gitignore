@@ -37,3 +37,5 @@ target/
 tmp/
 temp/
 *.tmp
+
+.cursor/
