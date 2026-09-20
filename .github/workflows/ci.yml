@@ -29,7 +29,7 @@ jobs:
 
       - name: Build
         run: |
-          chmod +x mvnw scripts/desplegar-ambiente-prueba.sh
+          chmod +x mvnw scripts/desplegar-ambiente-prueba.sh scripts/rollback-ambiente-prueba.sh
           ./mvnw -B -DskipUnitTests=true -DskipITs=true -DskipATs=true compile
 
       - name: Tests
@@ -40,10 +40,15 @@ jobs:
       - name: Acceptance
         run: ./mvnw -B verify -DskipUnitTests=true -DskipITs=true -Dheadless=true
 
-      - name: Despliegue ambiente de prueba
+      - name: Despliegue Blue-Green
         run: |
           ./mvnw -B -DskipUnitTests=true -DskipITs=true -DskipATs=true package
           ./scripts/desplegar-ambiente-prueba.sh
+          ./scripts/desplegar-ambiente-prueba.sh
+          echo "--- TRAFICO ---"
+          cat ambiente-prueba/TRAFICO.txt
+          echo "--- HISTORIAL ---"
+          cat ambiente-prueba/HISTORIAL.txt
 
       - name: Publicar reportes de tests
         if: always()

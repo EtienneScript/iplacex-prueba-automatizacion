@@ -43,16 +43,27 @@ Orden: **Tests → Acceptance → Despliegue en ambiente de prueba**. Si tests o
 | **Build** | Compila, sin pruebas |
 | **Tests** | Unitarias (`*Test`) e integración Selenium (`*IT`) |
 | **Acceptance** | Criterio de negocio: el usuario envía el formulario y ve confirmación (`*AT`) |
-| **Despliegue ambiente de prueba** | Empaqueta el JAR y lo publica en `ambiente-prueba/` (no es producción) |
+| **Despliegue ambiente de prueba** | Blue-Green: publica en el slot inactivo (`blue`/`green`), canary 10% y luego 100% |
+| **Rollback** | Devuelve el tráfico 100% al slot anterior |
 
 Despliegue local, después de empaquetar:
 
 ```powershell
 .\mvnw.cmd -DskipUnitTests=true -DskipITs=true -DskipATs=true package
 .\scripts\desplegar-ambiente-prueba.ps1
+.\scripts\desplegar-ambiente-prueba.ps1
+.\scripts\rollback-ambiente-prueba.ps1
 ```
 
-Queda `ambiente-prueba/RELEASE.txt` con versión, commit y estado `desplegado`.
+El primer deploy llena `blue`. El segundo hace canary en `green` (10%) y promueve a 100%. El rollback vuelve a `blue`.
+
+Quedan `ambiente-prueba/ACTIVO.txt`, `ANTERIOR.txt`, `TRAFICO.txt` e `HISTORIAL.txt`.
+
+Rollback en CI (manual):
+
+- GitHub: Actions → workflow **Rollback** → Run workflow
+- GitLab: botón manual del job `rollback-prueba`
+- Jenkins: Build with Parameters → `ACCION=rollback`
 
 Definiciones del mismo flujo:
 

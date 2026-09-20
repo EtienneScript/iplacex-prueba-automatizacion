@@ -1,9 +1,10 @@
-# Deployment pipeline: Tests → Acceptance → ambiente de prueba.
+# Deployment pipeline: Tests → Acceptance → Blue-Green → rollback manual.
 stages:
   - build
   - tests
   - acceptance
   - deploy-prueba
+  - rollback
 
 variables:
   MAVEN_OPTS: '-Dhttps.protocols=TLSv1.2'
@@ -21,7 +22,7 @@ cache:
 build:
   stage: build
   script:
-    - chmod +x mvnw scripts/desplegar-ambiente-prueba.sh
+    - chmod +x mvnw scripts/desplegar-ambiente-prueba.sh scripts/rollback-ambiente-prueba.sh
     - ./mvnw $MAVEN_CLI_OPTS -DskipUnitTests=true -DskipITs=true -DskipATs=true compile
   artifacts:
     paths:
@@ -66,9 +67,26 @@ despliegue-prueba:
   environment:
     name: prueba
   script:
-    - chmod +x mvnw scripts/desplegar-ambiente-prueba.sh
+    - chmod +x mvnw scripts/desplegar-ambiente-prueba.sh scripts/rollback-ambiente-prueba.sh
     - ./mvnw $MAVEN_CLI_OPTS -DskipUnitTests=true -DskipITs=true -DskipATs=true package
     - ./scripts/desplegar-ambiente-prueba.sh
+    - ./scripts/desplegar-ambiente-prueba.sh
+    - cat ambiente-prueba/TRAFICO.txt
+  artifacts:
+    paths:
+      - ambiente-prueba/
+    expire_in: 1 week
+
+rollback-prueba:
+  stage: rollback
+  needs: ['despliegue-prueba']
+  environment:
+    name: prueba
+  when: manual
+  script:
+    - chmod +x scripts/rollback-ambiente-prueba.sh
+    - ./scripts/rollback-ambiente-prueba.sh
+    - cat ambiente-prueba/TRAFICO.txt
   artifacts:
     paths:
       - ambiente-prueba/

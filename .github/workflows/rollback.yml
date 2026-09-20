@@ -1,0 +1,37 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rollback:
+    name: Rollback Blue-Green
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Descargar ultimo ambiente de prueba
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/rollback-ambiente-prueba.sh
+          run_id="$(gh run list --workflow=ci.yml --status=success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -z "$run_id" ]; then
+            echo "No hay un CD exitoso previo con el artefacto ambiente-prueba."
+            exit 1
+          fi
+          gh run download "$run_id" --name ambiente-prueba --dir ambiente-prueba
+
+      - name: Rollback al slot anterior
+        run: |
+          ./scripts/rollback-ambiente-prueba.sh
+          cat ambiente-prueba/TRAFICO.txt
+
+      - name: Publicar ambiente revertido
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambiente-prueba
+          path: ambiente-prueba/**

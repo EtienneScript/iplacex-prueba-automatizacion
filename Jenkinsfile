@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(name: 'ACCION', choices: ['desplegar', 'rollback'],
+               description: 'desplegar = Blue-Green; rollback = volver al slot anterior')
+    }
+
     options {
         timestamps()
         disableConcurrentBuilds()
@@ -19,6 +24,7 @@ pipeline {
 
     stages {
         stage('Build') {
+            when { expression { params.ACCION != 'rollback' } }
             steps {
                 script {
                     maven '-DskipUnitTests=true -DskipITs=true -DskipATs=true compile'
@@ -27,6 +33,7 @@ pipeline {
         }
 
         stage('Tests') {
+            when { expression { params.ACCION != 'rollback' } }
             steps {
                 script {
                     maven 'test -DskipITs=true -DskipATs=true'
@@ -44,6 +51,7 @@ pipeline {
         }
 
         stage('Acceptance') {
+            when { expression { params.ACCION != 'rollback' } }
             steps {
                 script {
                     maven "verify -DskipUnitTests=true -DskipITs=true -Dheadless=${env.HEADLESS}"
@@ -60,13 +68,34 @@ pipeline {
         }
 
         stage('Despliegue ambiente de prueba') {
+            when { expression { params.ACCION != 'rollback' } }
             steps {
                 script {
                     maven '-DskipUnitTests=true -DskipITs=true -DskipATs=true package'
+                    desplegarBlueGreen()
+                    desplegarBlueGreen()
+                }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'ambiente-prueba/**',
+                                    allowEmptyArchive: false
+                }
+            }
+        }
+
+        stage('Rollback') {
+            when { expression { params.ACCION == 'rollback' } }
+            steps {
+                script {
+                    copyArtifacts projectName: env.JOB_NAME,
+                                  selector: lastSuccessful(),
+                                  filter: 'ambiente-prueba/**',
+                                  optional: false
                     if (isUnix()) {
-                        sh 'chmod +x scripts/desplegar-ambiente-prueba.sh && ./scripts/desplegar-ambiente-prueba.sh'
+                        sh 'chmod +x scripts/rollback-ambiente-prueba.sh && ./scripts/rollback-ambiente-prueba.sh'
                     } else {
-                        bat 'powershell -ExecutionPolicy Bypass -File scripts\\desplegar-ambiente-prueba.ps1'
+                        bat 'powershell -ExecutionPolicy Bypass -File scripts\\rollback-ambiente-prueba.ps1'
                     }
                 }
             }
@@ -97,5 +126,13 @@ void maven(String args) {
         sh "./mvnw -B ${args}"
     } else {
         bat ".\\mvnw.cmd -B ${args}"
+    }
+}
+
+void desplegarBlueGreen() {
+    if (isUnix()) {
+        sh 'chmod +x scripts/desplegar-ambiente-prueba.sh && ./scripts/desplegar-ambiente-prueba.sh'
+    } else {
+        bat 'powershell -ExecutionPolicy Bypass -File scripts\\desplegar-ambiente-prueba.ps1'
     }
 }
