@@ -1,30 +1,35 @@
 # Iplacex — Prueba de automatización
 
-Repositorio Git con flujo de ramas **GitFlow** y proyecto Maven de pruebas (JUnit 5 + Selenium).
+Proyecto de **integración continua y despliegue continuo** para el curso de automatización: repositorio Git con **GitFlow**, Maven (JUnit 5 + Selenium) y un pipeline que compila, prueba, acepta y despliega en un ambiente de prueba con **Blue-Green, canary y rollback**.
 
-## Requisitos
+Repositorio: [github.com/EtienneScript/iplacex-prueba-automatizacion](https://github.com/EtienneScript/iplacex-prueba-automatizacion)
 
-- JDK 17 o superior
-- Google Chrome (para las pruebas de Selenium)
-- Maven 3.9+ o el wrapper incluido (`mvnw.cmd`)
+## Descripción
 
-## Dependencias de prueba
+El entregable no es una aplicación de negocio, sino un **laboratorio de CI/CD**:
 
-| Librería | Uso |
-| --- | --- |
-| JUnit 5 (Jupiter) | Ejecutar y afirmar pruebas |
-| Selenium 4 | Automatizar el navegador |
-| SLF4J Simple | Logs de las pruebas |
+- El código vive en `main` (producción) y `develop` (integración), según GitFlow.
+- Maven construye el JAR y ejecuta tres capas de prueba.
+- GitHub Actions (también Jenkins y GitLab) corre **Tests → Acceptance → Despliegue**.
+- El ambiente de prueba es simulado (`ambiente-prueba/`), con dos slots (`blue` / `green`).
 
-Selenium Manager (incluido en Selenium 4) descarga ChromeDriver automáticamente.
+## Estrategia de pruebas
 
-## Ejecutar pruebas
+Se usa una pirámide corta, cada capa con un plugin y un criterio distinto:
 
-| Tipo | Archivos | Plugin | Comando |
+| Capa | Qué valida | Cómo | Archivos |
 | --- | --- | --- | --- |
-| Unitarias | `*Test.java` | Surefire | `.\mvnw.cmd test` |
-| Integración | `*IT.java` | Failsafe | `.\mvnw.cmd verify -DskipUnitTests=true -DskipATs=true` |
-| Aceptación | `*AT.java` | Failsafe | `.\mvnw.cmd verify -DskipUnitTests=true -DskipITs=true` |
+| **Unitarias** | Lógica local, sin red ni navegador | Surefire (`mvn test`) | `*Test.java` |
+| **Integración** | El navegador abre el formulario de Selenium y escribe un campo | Failsafe (`*IT`) | `SeleniumSmokeIT` |
+| **Aceptación** | Criterio de negocio: el usuario envía el formulario y ve `Received!` | Failsafe (`*AT`) | `FormularioAceptacionAT` |
+
+- Las unitarias (`SanityTest`, `WebDriverFactoryTest`) fallan rápido y no dependen de Chrome.
+- Integración y aceptación usan Chrome headless (Selenium Manager descarga el driver).
+- En el pipeline, si las unitarias o la integración fallan, **no** se corre acceptance ni el despliegue.
+
+## Cómo ejecutar las pruebas
+
+Requisitos: JDK 17, Google Chrome y el wrapper Maven (`.\mvnw.cmd` en PowerShell).
 
 ```powershell
 .\mvnw.cmd test
@@ -32,21 +37,27 @@ Selenium Manager (incluido en Selenium 4) descarga ChromeDriver automáticamente
 .\mvnw.cmd verify -DskipUnitTests=true -DskipITs=true
 ```
 
-Las unitarias no abren el navegador. Integración y aceptación usan Chrome (headless por defecto).
-
-## Deployment pipeline
-
-Orden: **Tests → Acceptance → Despliegue en ambiente de prueba**. Si tests o acceptance fallan, no se despliega.
-
-| Stage | Qué hace |
+| Tipo | Comando |
 | --- | --- |
-| **Build** | Compila, sin pruebas |
-| **Tests** | Unitarias (`*Test`) e integración Selenium (`*IT`) |
-| **Acceptance** | Criterio de negocio: el usuario envía el formulario y ve confirmación (`*AT`) |
-| **Despliegue ambiente de prueba** | Blue-Green: publica en el slot inactivo (`blue`/`green`), canary 10% y luego 100% |
-| **Rollback** | Devuelve el tráfico 100% al slot anterior |
+| Unitarias | `.\mvnw.cmd test` |
+| Integración | `.\mvnw.cmd verify -DskipUnitTests=true -DskipATs=true` |
+| Aceptación | `.\mvnw.cmd verify -DskipUnitTests=true -DskipITs=true` |
+| Ver el navegador | agrega `-Dheadless=false` |
 
-Despliegue local, después de empaquetar:
+## Cómo ejecutar los pipelines
+
+El mismo flujo está versionado en tres formatos. En GitHub se dispara solo:
+
+| Archivo | Dónde corre | Cómo se lanza |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` | GitHub Actions (CD) | Push a `main`, `develop` o ramas GitFlow |
+| `.github/workflows/rollback.yml` | GitHub Actions | Actions → **Rollback** → Run workflow |
+| `Jenkinsfile` | Jenkins | Pipeline from SCM; `ACCION=desplegar` o `rollback` |
+| `.gitlab-ci.yml` | GitLab CI/CD | Push; el job `rollback-prueba` es **manual** |
+
+Stages del CD: **Build → Tests → Acceptance → Despliegue Blue-Green**.
+
+Despliegue y rollback en local (después de empaquetar):
 
 ```powershell
 .\mvnw.cmd -DskipUnitTests=true -DskipITs=true -DskipATs=true package
@@ -55,48 +66,31 @@ Despliegue local, después de empaquetar:
 .\scripts\rollback-ambiente-prueba.ps1
 ```
 
-El primer deploy llena `blue`. El segundo hace canary en `green` (10%) y promueve a 100%. El rollback vuelve a `blue`.
+El primer deploy activa `blue` al 100%. El segundo hace canary 10% en `green` y luego promueve a 100%. El rollback devuelve el tráfico a `blue`.
 
-Quedan `ambiente-prueba/ACTIVO.txt`, `ANTERIOR.txt`, `TRAFICO.txt` e `HISTORIAL.txt`.
+Guía de ramas: [`docs/flujo-de-ramas.md`](docs/flujo-de-ramas.md).
 
-Rollback en CI (manual):
+## Evidencias de funcionamiento
 
-- GitHub: Actions → workflow **Rollback** → Run workflow
-- GitLab: botón manual del job `rollback-prueba`
-- Jenkins: Build with Parameters → `ACCION=rollback`
+### GitFlow: `main` y `develop` en GitHub
 
-Definiciones del mismo flujo:
+![Ramas main y develop](docs/evidencias/04-ramas.png)
 
-- `Jenkinsfile` — Jenkins (declarativo). El agente debe tener JDK 17 (`JDK17`) y Google Chrome.
-- `.gitlab-ci.yml` — GitLab CI/CD (imagen con Maven + Chromium). El job de deploy usa el environment `prueba`.
-- `.github/workflows/ci.yml` — GitHub Actions; publica el artefacto `ambiente-prueba`.
+### Pipeline CD en verde (unitarias, integración, acceptance y deploy)
 
-## Flujo de ramas
+![Lista de workflows en GitHub Actions](docs/evidencias/01-github-actions.png)
 
-Este proyecto usa GitFlow. Las ramas de larga duración son:
+![Run CD en develop — Success](docs/evidencias/02-cd-develop.png)
 
-| Rama | Rol |
-| --- | --- |
-| `main` | Producción. Solo código estable y versionado. |
-| `develop` | Integración. Base para nuevas funcionalidades. |
+### Rollback Blue-Green en verde
 
-Las ramas de corta duración se crean y se eliminan al integrar:
+![Workflow Rollback — Success](docs/evidencias/03-rollback.png)
 
-| Prefijo | Origen | Destino | Uso |
-| --- | --- | --- | --- |
-| `feature/*` | `develop` | `develop` | Nueva funcionalidad |
-| `release/*` | `develop` | `main` y `develop` | Preparar una versión |
-| `hotfix/*` | `main` | `main` y `develop` | Corrección urgente en producción |
+Runs públicos:
 
-La guía completa está en [`docs/flujo-de-ramas.md`](docs/flujo-de-ramas.md).
+- [CD #4 en `develop`](https://github.com/EtienneScript/iplacex-prueba-automatizacion/actions/runs/35541684395) (success, 37 s)
+- [Rollback #1](https://github.com/EtienneScript/iplacex-prueba-automatizacion/actions/runs/35541576291) (success, 10 s)
 
-Los commits van en español con tipo `feature:` o `fix:`. Ejemplo: `feature: Agrega el pipeline de CI.`
+### Corrida local: pruebas + canary + Blue-Green + rollback
 
-## Arranque local
-
-```bash
-git clone <url-del-repositorio>
-git checkout develop
-```
-
-Trabaja siempre desde `develop`, no desde `main`.
+![Corrida local BUILD SUCCESS y rollback a blue](docs/evidencias/05-corrida-local.png)
