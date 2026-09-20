@@ -20,6 +20,9 @@
         <selenium.version>4.48.0</selenium.version>
         <slf4j.version>2.0.17</slf4j.version>
         <headless>true</headless>
+        <skipUnitTests>false</skipUnitTests>
+        <skipITs>false</skipITs>
+        <skipATs>false</skipATs>
     </properties>
 
     <dependencyManagement>
@@ -70,13 +73,59 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
                 <configuration>
+                    <skipTests>${skipUnitTests}</skipTests>
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                        <exclude>**/*AT.java</exclude>
+                    </excludes>
                     <systemPropertyVariables>
                         <headless>${headless}</headless>
                     </systemPropertyVariables>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.3</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <headless>${headless}</headless>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <skipITs>${skipITs}</skipITs>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <reportsDirectory>${project.build.directory}/failsafe-reports</reportsDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>acceptance-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <skipITs>${skipATs}</skipITs>
+                            <includes>
+                                <include>**/*AT.java</include>
+                            </includes>
+                            <reportsDirectory>${project.build.directory}/failsafe-reports-at</reportsDirectory>
+                            <summaryFile>${project.build.directory}/failsafe-reports-at/failsafe-summary.xml</summaryFile>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

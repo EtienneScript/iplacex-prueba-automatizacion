@@ -13,6 +13,10 @@ public final class WebDriverFactory {
     }
 
     public static WebDriver crearChrome() {
+        return new ChromeDriver(crearOpciones());
+    }
+
+    public static ChromeOptions crearOpciones() {
         ChromeOptions options = new ChromeOptions();
         if (Boolean.parseBoolean(System.getProperty("headless", "true"))) {
             options.addArguments("--headless=new");
@@ -21,6 +25,6 @@ public final class WebDriverFactory {
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1280,720");
-        return new ChromeDriver(options);
+        return options;
     }
 }

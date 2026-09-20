@@ -1,4 +1,4 @@
-name: CI
+name: CD
 
 on:
   push:
@@ -11,10 +11,10 @@ on:
   pull_request:
 
 jobs:
-  ci:
-    name: Build y pruebas
+  pipeline:
+    name: Tests, acceptance y despliegue
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -29,16 +29,42 @@ jobs:
 
       - name: Build
         run: |
-          chmod +x mvnw
-          ./mvnw -B -DskipTests compile
+          chmod +x mvnw scripts/desplegar-ambiente-prueba.sh
+          ./mvnw -B -DskipUnitTests=true -DskipITs=true -DskipATs=true compile
 
-      - name: Test
-        run: ./mvnw -B test -Dheadless=true
+      - name: Tests
+        run: |
+          ./mvnw -B test -DskipITs=true -DskipATs=true
+          ./mvnw -B verify -DskipUnitTests=true -DskipATs=true -Dheadless=true
 
-      - name: Publicar reportes JUnit
+      - name: Acceptance
+        run: ./mvnw -B verify -DskipUnitTests=true -DskipITs=true -Dheadless=true
+
+      - name: Despliegue ambiente de prueba
+        run: |
+          ./mvnw -B -DskipUnitTests=true -DskipITs=true -DskipATs=true package
+          ./scripts/desplegar-ambiente-prueba.sh
+
+      - name: Publicar reportes de tests
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
-          path: target/surefire-reports/**
+          name: reportes-tests
+          path: |
+            target/surefire-reports/**
+            target/failsafe-reports/**
           if-no-files-found: warn
+
+      - name: Publicar reportes de acceptance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-acceptance
+          path: target/failsafe-reports-at/**
+          if-no-files-found: warn
+
+      - name: Publicar ambiente de prueba
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambiente-prueba
+          path: ambiente-prueba/**

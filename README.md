@@ -20,46 +20,45 @@ Selenium Manager (incluido en Selenium 4) descarga ChromeDriver automáticamente
 
 ## Ejecutar pruebas
 
-En PowerShell hay que anteponer `.\` (no carga ejecutables del directorio actual):
+| Tipo | Archivos | Plugin | Comando |
+| --- | --- | --- | --- |
+| Unitarias | `*Test.java` | Surefire | `.\mvnw.cmd test` |
+| Integración | `*IT.java` | Failsafe | `.\mvnw.cmd verify -DskipUnitTests=true -DskipATs=true` |
+| Aceptación | `*AT.java` | Failsafe | `.\mvnw.cmd verify -DskipUnitTests=true -DskipITs=true` |
 
 ```powershell
 .\mvnw.cmd test
+.\mvnw.cmd verify -DskipUnitTests=true -DskipATs=true
+.\mvnw.cmd verify -DskipUnitTests=true -DskipITs=true
 ```
 
-Si Maven está instalado de forma global:
+Las unitarias no abren el navegador. Integración y aceptación usan Chrome (headless por defecto).
+
+## Deployment pipeline
+
+Orden: **Tests → Acceptance → Despliegue en ambiente de prueba**. Si tests o acceptance fallan, no se despliega.
+
+| Stage | Qué hace |
+| --- | --- |
+| **Build** | Compila, sin pruebas |
+| **Tests** | Unitarias (`*Test`) e integración Selenium (`*IT`) |
+| **Acceptance** | Criterio de negocio: el usuario envía el formulario y ve confirmación (`*AT`) |
+| **Despliegue ambiente de prueba** | Empaqueta el JAR y lo publica en `ambiente-prueba/` (no es producción) |
+
+Despliegue local, después de empaquetar:
 
 ```powershell
-mvn test
+.\mvnw.cmd -DskipUnitTests=true -DskipITs=true -DskipATs=true package
+.\scripts\desplegar-ambiente-prueba.ps1
 ```
 
-Para ver el navegador (sin headless):
-
-```powershell
-.\mvnw.cmd test -Dheadless=false
-```
-
-Solo la prueba unitaria, sin abrir Chrome:
-
-```powershell
-.\mvnw.cmd test -Dtest=SanityTest
-```
-
-## Pipeline de CI
-
-El pipeline tiene dos stages, en este orden:
-
-| Stage | Qué hace | Comando |
-| --- | --- | --- |
-| **Build** | Compila el proyecto, sin ejecutar pruebas | `./mvnw -B -DskipTests compile` |
-| **Test** | Corre JUnit y Selenium en Chrome headless | `./mvnw -B test -Dheadless=true` |
-
-Si el build falla, las pruebas no se ejecutan.
+Queda `ambiente-prueba/RELEASE.txt` con versión, commit y estado `desplegado`.
 
 Definiciones del mismo flujo:
 
-- `Jenkinsfile` — Jenkins (declarativo). El agente debe tener JDK 17 registrado como herramienta `JDK17` y Google Chrome.
-- `.gitlab-ci.yml` — GitLab CI/CD (imagen con Maven + Chromium).
-- `.github/workflows/ci.yml` — GitHub Actions (se dispara en `main`, `develop` y ramas GitFlow).
+- `Jenkinsfile` — Jenkins (declarativo). El agente debe tener JDK 17 (`JDK17`) y Google Chrome.
+- `.gitlab-ci.yml` — GitLab CI/CD (imagen con Maven + Chromium). El job de deploy usa el environment `prueba`.
+- `.github/workflows/ci.yml` — GitHub Actions; publica el artefacto `ambiente-prueba`.
 
 ## Flujo de ramas
 

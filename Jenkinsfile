@@ -4,7 +4,7 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
-        timeout(time: 20, unit: 'MINUTES')
+        timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
@@ -21,23 +21,59 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    maven '-DskipTests compile'
+                    maven '-DskipUnitTests=true -DskipITs=true -DskipATs=true compile'
                 }
             }
         }
 
-        stage('Test') {
+        stage('Tests') {
             steps {
                 script {
-                    maven "test -Dheadless=${env.HEADLESS}"
+                    maven 'test -DskipITs=true -DskipATs=true'
+                    maven "verify -DskipUnitTests=true -DskipATs=true -Dheadless=${env.HEADLESS}"
                 }
             }
             post {
                 always {
                     junit allowEmptyResults: false,
-                          testResults: 'target/surefire-reports/*.xml'
-                    archiveArtifacts artifacts: 'target/surefire-reports/**',
+                          testResults: 'target/surefire-reports/*.xml,target/failsafe-reports/*.xml'
+                    archiveArtifacts artifacts: 'target/surefire-reports/**,target/failsafe-reports/**',
                                     allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Acceptance') {
+            steps {
+                script {
+                    maven "verify -DskipUnitTests=true -DskipITs=true -Dheadless=${env.HEADLESS}"
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: false,
+                          testResults: 'target/failsafe-reports-at/*.xml'
+                    archiveArtifacts artifacts: 'target/failsafe-reports-at/**',
+                                    allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Despliegue ambiente de prueba') {
+            steps {
+                script {
+                    maven '-DskipUnitTests=true -DskipITs=true -DskipATs=true package'
+                    if (isUnix()) {
+                        sh 'chmod +x scripts/desplegar-ambiente-prueba.sh && ./scripts/desplegar-ambiente-prueba.sh'
+                    } else {
+                        bat 'powershell -ExecutionPolicy Bypass -File scripts\\desplegar-ambiente-prueba.ps1'
+                    }
+                }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'ambiente-prueba/**',
+                                    allowEmptyArchive: false
                 }
             }
         }
@@ -45,10 +81,10 @@ pipeline {
 
     post {
         success {
-            echo 'Build y pruebas automatizadas OK.'
+            echo 'Tests, acceptance y despliegue en ambiente de prueba OK.'
         }
         failure {
-            echo 'El pipeline falló. Revisa el stage Build o Test.'
+            echo 'El pipeline falló. No se despliega si tests o acceptance fallan.'
         }
         cleanup {
             deleteDir()

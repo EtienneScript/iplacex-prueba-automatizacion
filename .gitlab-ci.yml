@@ -1,14 +1,15 @@
-# Mismo flujo que el Jenkinsfile: Build y luego pruebas automatizadas.
+# Deployment pipeline: Tests → Acceptance → ambiente de prueba.
 stages:
   - build
-  - test
+  - tests
+  - acceptance
+  - deploy-prueba
 
 variables:
   MAVEN_OPTS: '-Dhttps.protocols=TLSv1.2'
   HEADLESS: 'true'
   MAVEN_CLI_OPTS: '-B'
 
-# Imagen con JDK 17, Maven y Chromium para Selenium headless.
 default:
   image: markhobson/maven-chrome:jdk-17
 
@@ -20,23 +21,55 @@ cache:
 build:
   stage: build
   script:
-    - chmod +x mvnw
-    - ./mvnw $MAVEN_CLI_OPTS -DskipTests compile
+    - chmod +x mvnw scripts/desplegar-ambiente-prueba.sh
+    - ./mvnw $MAVEN_CLI_OPTS -DskipUnitTests=true -DskipITs=true -DskipATs=true compile
   artifacts:
     paths:
       - target/
     expire_in: 1 hour
 
-test:
-  stage: test
+tests:
+  stage: tests
   needs: ['build']
   script:
     - chmod +x mvnw
-    - ./mvnw $MAVEN_CLI_OPTS test -Dheadless=$HEADLESS
+    - ./mvnw $MAVEN_CLI_OPTS test -DskipITs=true -DskipATs=true
+    - ./mvnw $MAVEN_CLI_OPTS verify -DskipUnitTests=true -DskipATs=true -Dheadless=$HEADLESS
   artifacts:
     when: always
     reports:
-      junit: target/surefire-reports/TEST-*.xml
+      junit:
+        - target/surefire-reports/TEST-*.xml
+        - target/failsafe-reports/TEST-*.xml
     paths:
       - target/surefire-reports/
+      - target/failsafe-reports/
+    expire_in: 1 week
+
+acceptance:
+  stage: acceptance
+  needs: ['tests']
+  script:
+    - chmod +x mvnw
+    - ./mvnw $MAVEN_CLI_OPTS verify -DskipUnitTests=true -DskipITs=true -Dheadless=$HEADLESS
+  artifacts:
+    when: always
+    reports:
+      junit: target/failsafe-reports-at/TEST-*.xml
+    paths:
+      - target/failsafe-reports-at/
+    expire_in: 1 week
+
+despliegue-prueba:
+  stage: deploy-prueba
+  needs: ['acceptance']
+  environment:
+    name: prueba
+  script:
+    - chmod +x mvnw scripts/desplegar-ambiente-prueba.sh
+    - ./mvnw $MAVEN_CLI_OPTS -DskipUnitTests=true -DskipITs=true -DskipATs=true package
+    - ./scripts/desplegar-ambiente-prueba.sh
+  artifacts:
+    paths:
+      - ambiente-prueba/
     expire_in: 1 week

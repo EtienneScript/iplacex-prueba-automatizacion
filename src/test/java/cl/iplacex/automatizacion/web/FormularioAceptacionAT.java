@@ -2,6 +2,7 @@ package cl.iplacex.automatizacion.web;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -11,9 +12,10 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class SeleniumSmokeTest {
+@Tag("aceptacion")
+class FormularioAceptacionAT {
 
     private static final String FORMULARIO_SELENIUM =
             "https://www.selenium.dev/selenium/web/web-form.html";
@@ -35,13 +37,18 @@ class SeleniumSmokeTest {
     }
 
     @Test
-    void cargaElFormularioDeEjemploDeSelenium() {
+    void elUsuarioPuedeEnviarElFormularioYRecibirConfirmacion() {
         driver.get(FORMULARIO_SELENIUM);
 
-        WebElement titulo = espera.until(
-                ExpectedConditions.visibilityOfElementLocated(By.tagName("h1")));
+        WebElement campoTexto = espera.until(
+                ExpectedConditions.visibilityOfElementLocated(By.name("my-text")));
+        campoTexto.sendKeys("Iplacex");
+        driver.findElement(By.cssSelector("button")).click();
 
-        assertTrue(titulo.getText().contains("Web form"),
-                "La página de ejemplo de Selenium no cargó el formulario");
+        WebElement mensaje = espera.until(
+                ExpectedConditions.visibilityOfElementLocated(By.id("message")));
+
+        assertEquals("Received!", mensaje.getText(),
+                "El criterio de aceptación es confirmar el envío del formulario");
     }
 }
